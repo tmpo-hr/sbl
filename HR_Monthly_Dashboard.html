@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monthly Status Dashboard</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #fff; color: #000; display: flex; height: 100vh; overflow: hidden; }
+.nav { width: 255px; min-width: 255px; border-right: 1.5px solid #000; display: flex; flex-direction: column; }
+.nav-header { padding: 18px 18px 12px; border-bottom: 1.5px solid #000; }
+.nav-header h2 { font-size: 14px; font-weight: 700; }
+.nav-header p { font-size: 10px; color: #888; margin-top: 3px; }
+.upload-area { padding: 10px 12px; border-bottom: 1.5px solid #000; }
+.upload-btn { width: 100%; padding: 9px; border: 1.5px dashed #000; background: #fff; cursor: pointer; font-size: 12px; font-weight: 600; text-align: center; display: block; }
+.upload-btn:hover { background: #000; color: #fff; }
+.upload-status { font-size: 10px; color: #888; text-align: center; margin-top: 5px; min-height: 13px; }
+.upload-status.ok { color: #2D6A4F; font-weight: 700; }
+.upload-status.err { color: #c0392b; font-weight: 700; }
+.fmt-note { font-size: 9px; color: #aaa; text-align: center; margin-top: 3px; line-height: 1.4; }
+#file-input { display: none; }
+.nav-list { overflow-y: auto; flex: 1; padding: 8px 0; }
+.nav-item { padding: 12px 18px; border: 1px solid #000; margin: 5px 10px; cursor: pointer; font-size: 13px; font-weight: 600; background: #fff; }
+.nav-item:hover { background: #000; color: #fff; }
+.nav-item.active { background: #000; color: #fff; }
+.nav-item.report { border-color: #c0392b; color: #c0392b; }
+.nav-item.report:hover, .nav-item.report.active { background: #c0392b; color: #fff; border-color: #c0392b; }
+.nav-num { font-size: 10px; opacity: .5; margin-right: 7px; }
+.content { flex: 1; overflow-y: auto; padding: 32px 36px; }
+.section { display: none; }
+.section.active { display: block; }
+.sec-title { font-size: 19px; font-weight: 700; padding-bottom: 10px; border-bottom: 1.5px solid #000; }
+.sec-sub { font-size: 12px; color: #888; margin: 5px 0 20px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.stat-card { border: 1.5px solid #000; padding: 14px; }
+.stat-label { font-size: 10px; color: #666; margin-bottom: 5px; }
+.stat-value { font-size: 26px; font-weight: 700; line-height: 1; }
+.stat-unit { font-size: 11px; color: #666; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { border: 1px solid #000; padding: 8px 10px; text-align: center; font-weight: 700; background: #000; color: #fff; font-size: 12px; }
+td { border: 1px solid #ccc; padding: 7px 10px; text-align: center; }
+tr:hover td { background: #f8f8f8; }
+.badge { display: inline-block; border: 1px solid #000; padding: 1px 7px; font-size: 11px; font-weight: 600; }
+.badge.exit { border-color: #c0392b; color: #c0392b; }
+.rpt-title { font-size: 22px; font-weight: 700; color: #c0392b; }
+.rpt-date { font-size: 11px; color: #999; margin: 4px 0 16px; }
+.rpt-divider { height: 2px; background: #c0392b; margin-bottom: 20px; }
+.rpt-block { border: 1.5px solid #000; padding: 16px 20px; margin-bottom: 12px; }
+.rpt-block h3 { font-size: 13px; font-weight: 700; padding-bottom: 8px; border-bottom: 1px solid #eee; margin-bottom: 8px; }
+.rpt-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px dotted #eee; }
+.rpt-row:last-child { border: none; }
+.rpt-row .l { color: #555; }
+.rpt-row .v { font-weight: 600; }
+.info-box { background: #f4f4f4; border-left: 3px solid #000; padding: 12px 16px; font-size: 12px; line-height: 1.8; margin-bottom: 20px; }
+.info-box b { font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-header">
+    <h2>Monthly Status</h2>
+    <p>HR Dashboard v0.3</p>
+  </div>
+  <div class="upload-area">
+    <label class="upload-btn" for="file-input">📂 파일 업로드 (CSV/Excel)</label>
+    <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.txt">
+    <div class="upload-status" id="upStatus">더미데이터 사용 중</div>
+    <div class="fmt-note">CSV 또는 Excel 파일<br>첫 행 = 컬럼명</div>
+  </div>
+  <div class="nav-list">
+    <div class="nav-item active" id="nav-wf"  onclick="show('wf')"><span class="nav-num">1</span>Workforce Status</div>
+    <div class="nav-item"        id="nav-jl"  onclick="show('jl')"><span class="nav-num">2</span>Job Level &amp; Category</div>
+    <div class="nav-item"        id="nav-hc"  onclick="show('hc')"><span class="nav-num">3</span>Headcount by Center</div>
+    <div class="nav-item"        id="nav-ac"  onclick="show('ac')"><span class="nav-num">4</span>Academic Degree</div>
+    <div class="nav-item"        id="nav-en"  onclick="show('en')"><span class="nav-num">5</span>English Skill Level</div>
+    <div class="nav-item"        id="nav-to"  onclick="show('to')"><span class="nav-num">6</span>Employee Turnover</div>
+    <div class="nav-item"        id="nav-mh"  onclick="show('mh')"><span class="nav-num">7</span>Man Hour Status</div>
+    <div class="nav-item report" id="nav-rpt" onclick="show('rpt')"><span class="nav-num">8</span>Report ↗</div>
+  </div>
+</div>
+
+<div class="content">
+  <div class="section active" id="sec-wf">
+    <div class="sec-title">Workforce Status</div>
+    <div class="sec-sub">전체 인력 현황 · 재직/퇴직 기준</div>
+    <div class="stat-grid" id="wf-cards"></div>
+    <table><thead><tr><th>사번</th><th>성명</th><th>성별</th><th>직급명</th><th>부서명</th><th>센터</th><th>인력유형</th><th>재직상태</th></tr></thead><tbody id="wf-body"></tbody></table>
+  </div>
+  <div class="section" id="sec-jl">
+    <div class="sec-title">Job Level &amp; Job Category Status</div>
+    <div class="sec-sub">직급별 · 직군별 인원 현황</div>
+    <div class="stat-grid" id="jl-cards"></div>
+    <table><thead><tr><th>직급명</th><th>직군</th><th>인원수</th><th>비율</th></tr></thead><tbody id="jl-body"></tbody></table>
+  </div>
+  <div class="section" id="sec-hc">
+    <div class="sec-title">Headcount by Center</div>
+    <div class="sec-sub">센터별 인원 현황 (재직 기준)</div>
+    <div class="stat-grid" id="hc-cards"></div>
+    <table><thead><tr><th>센터</th><th>BU</th><th>인원수</th><th>비율</th></tr></thead><tbody id="hc-body"></tbody></table>
+  </div>
+  <div class="section" id="sec-ac">
+    <div class="sec-title">Academic Degree Status</div>
+    <div class="sec-sub">최종학력 현황 (재직 기준)</div>
+    <div class="stat-grid" id="ac-cards"></div>
+    <table><thead><tr><th>최종학력</th><th>인원수</th><th>비율</th></tr></thead><tbody id="ac-body"></tbody></table>
+  </div>
+  <div class="section" id="sec-en">
+    <div class="sec-title">English Skill Level</div>
+    <div class="sec-sub">어학 수준 현황 (재직 기준)</div>
+    <div class="stat-grid" id="en-cards"></div>
+    <table><thead><tr><th>어학</th><th>인원수</th><th>비율</th></tr></thead><tbody id="en-body"></tbody></table>
+  </div>
+  <div class="section" id="sec-to">
+    <div class="sec-title">Employee Turnover Status</div>
+    <div class="sec-sub">퇴직 현황 및 퇴직률</div>
+    <div class="stat-grid" id="to-cards"></div>
+    <table><thead><tr><th>사번</th><th>성명</th><th>직급명</th><th>부서명</th><th>센터</th><th>당사근속(년)</th><th>재직상태</th></tr></thead><tbody id="to-body"></tbody></table>
+  </div>
+  <div class="section" id="sec-mh">
+    <div class="sec-title">Man Hour Status</div>
+    <div class="sec-sub">근무시간 객관 지표 · 센터별 평균 근무시간</div>
+    <div class="stat-grid" id="mh-cards"></div>
+    <table><thead><tr><th>센터</th><th>인원수</th><th>총 근무시간(h)</th><th>평균 근무시간(h)</th><th>최대(h)</th><th>최소(h)</th></tr></thead><tbody id="mh-body"></tbody></table>
+  </div>
+  <div class="section" id="sec-rpt">
+    <div class="rpt-title">Monthly Status Report</div>
+    <div class="rpt-date" id="rpt-date"></div>
+    <div class="rpt-divider"></div>
+    <div id="rpt-body"></div>
+  </div>
+</div>
+
+<script>
+// ── 더미 데이터 ──────────────────────────────
+var DUMMY = [
+  {사번:"EMP001",성명:"직원A",성별:"남",연령:34,직급명:"과장",직군:"연구",입사경위2:"신입",당사근속:6.5,부서명:"품질관리팀",센터:"생산센터A",BU:"CMO BU1",재직상태:"재직",인력유형:"정규직",최종학력:"학사",어학:"OPIc IM2",man_hour_actual:155},
+  {사번:"EMP002",성명:"직원B",성별:"여",연령:28,직급명:"대리",직군:"생산",입사경위2:"신입",당사근속:4.2,부서명:"생산1팀",센터:"생산센터A",BU:"CMO BU1",재직상태:"재직",인력유형:"정규직",최종학력:"학사",어학:"TOEIC 820",man_hour_actual:162},
+  {사번:"EMP003",성명:"직원C",성별:"남",연령:41,직급명:"차장",직군:"연구",입사경위2:"경력",당사근속:9.8,부서명:"연구개발팀",센터:"R&D센터",BU:"CMO BU2",재직상태:"재직",인력유형:"정규직",최종학력:"석사",어학:"OPIc AL",man_hour_actual:170},
+  {사번:"EMP004",성명:"직원D",성별:"여",연령:25,직급명:"사원",직군:"지원",입사경위2:"신입",당사근속:2.1,부서명:"HR팀",센터:"지원센터",BU:"Support BU",재직상태:"재직",인력유형:"정규직",최종학력:"학사",어학:"원어민",man_hour_actual:148},
+  {사번:"EMP005",성명:"직원E",성별:"남",연령:37,직급명:"과장",직군:"생산",입사경위2:"경력",당사근속:5.6,부서명:"생산1팀",센터:"생산센터A",BU:"CMO BU1",재직상태:"퇴직",인력유형:"정규직",최종학력:"학사",어학:"TOEIC 750",man_hour_actual:0}
+];
+var RAW = DUMMY.slice();
+
+// ── CSV 파서 ──────────────────────────────────
+function parseCSV(text) {
+  var lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  if (lines.length < 2) return null;
+  var headers = lines[0].split(',').map(function(h){return h.trim().replace(/^"|"$/g,'');});
+  var rows = [];
+  for (var i = 1; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue; // 빈 행 완전 제거
+    var vals = line.split(',').map(function(v){return v.trim().replace(/^"|"$/g,'');});
+    // 모든 값이 비어있으면 스킵
+    var allEmpty = true;
+    for (var k = 0; k < vals.length; k++) { if (vals[k]) { allEmpty = false; break; } }
+    if (allEmpty) continue;
+    var obj = {};
+    for (var j = 0; j < headers.length; j++) obj[headers[j]] = vals[j] || '';
+    rows.push(obj);
+  }
+  return rows;
+}
+
+// ── 파일 업로드 ───────────────────────────────
+document.getElementById('file-input').addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var el = document.getElementById('upStatus');
+  var ext = file.name.split('.').pop().toLowerCase();
+
+  if (ext === 'csv' || ext === 'txt') {
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var parsed = parseCSV(ev.target.result);
+        if (!parsed || parsed.length === 0) throw new Error('데이터 없음');
+        RAW = parsed;
+        el.textContent = '✓ ' + file.name + ' (' + RAW.length + '명)';
+        el.className = 'upload-status ok';
+        renderAll();
+      } catch(err) {
+        el.textContent = '⚠ CSV 파싱 실패';
+        el.className = 'upload-status err';
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    // xlsx는 별도 라이브러리 필요 → 안내
+    el.textContent = '⚠ 엑셀은 CSV로 변환 후 업로드';
+    el.className = 'upload-status err';
+    alert('엑셀 파일은 바로 읽기가 어려워요.\n\n엑셀 → 다른이름으로 저장 → CSV(쉼표로 분리) 로 저장 후 업로드하세요!');
+  }
+});
+
+// ── 헬퍼 함수 ────────────────────────────────
+function pct(n,d) { return d===0?'0%':(n/d*100).toFixed(1)+'%'; }
+function grp(arr, key) {
+  var m={};
+  for(var i=0;i<arr.length;i++){var v=String(arr[i][key]||'미입력').trim(); m[v]=(m[v]||0)+1;}
+  return Object.entries(m).sort(function(a,b){return b[1]-a[1];});
+}
+function card(lbl,val,unit) {
+  return '<div class="stat-card"><div class="stat-label">'+lbl+'</div><div class="stat-value">'+val+'<span class="stat-unit"> '+(unit||'')+'</span></div></div>';
+}
+function bdg(txt,ex) { return '<span class="badge'+(ex?' exit':'')+'">'+(txt||'-')+'</span>'; }
+function rrow(l,v) { return '<div class="rpt-row"><span class="l">'+l+'</span><span class="v">'+v+'</span></div>'; }
+function rblk(title,rows) { return '<div class="rpt-block"><h3>'+title+'</h3>'+rows.join('')+'</div>'; }
+function sh(id,h) { document.getElementById(id).innerHTML=h; }
+function g(d,k) { return String(d[k]||'').trim(); }
+function gn(d,k) { return parseFloat(d[k])||0; }
+
+function show(id) {
+  var secs=document.querySelectorAll('.section');
+  for(var i=0;i<secs.length;i++) secs[i].classList.remove('active');
+  var navs=document.querySelectorAll('.nav-item');
+  for(var i=0;i<navs.length;i++) navs[i].classList.remove('active');
+  document.getElementById('sec-'+id).classList.add('active');
+  document.getElementById('nav-'+id).classList.add('active');
+}
+
+// ── 렌더링 ────────────────────────────────────
+function renderAll() {
+  var active=[],exitArr=[],total=RAW.length;
+  for(var i=0;i<RAW.length;i++){
+    if(g(RAW[i],'재직상태')==='퇴직') exitArr.push(RAW[i]); else active.push(RAW[i]);
+  }
+  var aC=active.length, exitC=exitArr.length;
+
+  // 1. WORKFORCE
+  sh('wf-cards', card('전체 인원',total,'명')+card('재직',aC,'명')+card('퇴직',exitC,'명')+card('퇴직률',pct(exitC,total)));
+  sh('wf-body', RAW.map(function(d){
+    return '<tr><td>'+g(d,'사번')+'</td><td>'+g(d,'성명')+'</td><td>'+g(d,'성별')+'</td><td>'+g(d,'직급명')+'</td><td>'+g(d,'부서명')+'</td><td>'+g(d,'센터')+'</td><td>'+g(d,'인력유형')+'</td><td>'+bdg(g(d,'재직상태'),g(d,'재직상태')==='퇴직')+'</td></tr>';
+  }).join(''));
+
+  // 2. JOB LEVEL
+  var jlG=grp(active,'직급명'), gunG=grp(active,'직군');
+  var sumAge=0; for(var i=0;i<active.length;i++) sumAge+=gn(active[i],'연령');
+  var avgAge=aC?(sumAge/aC).toFixed(1):'-';
+  var careerC=0; for(var i=0;i<active.length;i++) if(g(active[i],'입사경위2')==='경력') careerC++;
+  sh('jl-cards', card('평균 연령',avgAge,'세')+card('경력직 비율',pct(careerC,aC)));
+  sh('jl-body', jlG.map(function(e){
+    var lv=e[0],cnt=e[1],guns=[];
+    for(var i=0;i<active.length;i++) if(g(active[i],'직급명')===lv && guns.indexOf(g(active[i],'직군'))<0) guns.push(g(active[i],'직군'));
+    return '<tr><td>'+lv+'</td><td>'+guns.join(', ')+'</td><td>'+cnt+'</td><td>'+pct(cnt,aC)+'</td></tr>';
+  }).join(''));
+
+  // 3. HEADCOUNT
+  var hcG=grp(active,'센터');
+  sh('hc-cards', card('센터 수',hcG.length,'개')+card('재직 총계',aC,'명'));
+  sh('hc-body', hcG.map(function(e){
+    var center=e[0],cnt=e[1],bus=[];
+    for(var i=0;i<active.length;i++) if(g(active[i],'센터')===center && bus.indexOf(g(active[i],'BU'))<0) bus.push(g(active[i],'BU'));
+    return '<tr><td>'+center+'</td><td>'+bus.join(', ')+'</td><td>'+cnt+'</td><td>'+pct(cnt,aC)+'</td></tr>';
+  }).join(''));
+
+  // 4. ACADEMIC
+  var acG=grp(active,'최종학력');
+  var masterC=0; for(var i=0;i<active.length;i++){var h=g(active[i],'최종학력'); if(h==='석사'||h==='박사') masterC++;}
+  sh('ac-cards', card('학력 종류',acG.length,'개')+card('석사 이상',masterC,'명')+card('석사 이상 비율',pct(masterC,aC)));
+  sh('ac-body', acG.map(function(e){return '<tr><td>'+e[0]+'</td><td>'+e[1]+'</td><td>'+pct(e[1],aC)+'</td></tr>';}).join(''));
+
+  // 5. ENGLISH
+  var enG=grp(active,'어학');
+  var nativeC=0,hasLangC=0;
+  for(var i=0;i<active.length;i++){var lang=g(active[i],'어학'); if(lang==='원어민') nativeC++; if(lang&&lang!=='미입력') hasLangC++;}
+  sh('en-cards', card('어학 보유자',hasLangC,'명')+card('원어민',nativeC,'명')+card('종류 수',enG.length,'개'));
+  sh('en-body', enG.map(function(e){return '<tr><td>'+e[0]+'</td><td>'+e[1]+'</td><td>'+pct(e[1],aC)+'</td></tr>';}).join(''));
+
+  // 6. TURNOVER
+  var sumTen=0; for(var i=0;i<exitArr.length;i++) sumTen+=gn(exitArr[i],'당사근속');
+  var avgTen=exitC?(sumTen/exitC).toFixed(1):'-';
+  sh('to-cards', card('퇴직자',exitC,'명')+card('퇴직률',pct(exitC,total))+card('평균 근속',avgTen,'년'));
+  sh('to-body', RAW.map(function(d){
+    return '<tr><td>'+g(d,'사번')+'</td><td>'+g(d,'성명')+'</td><td>'+g(d,'직급명')+'</td><td>'+g(d,'부서명')+'</td><td>'+g(d,'센터')+'</td><td>'+g(d,'당사근속')+'</td><td>'+bdg(g(d,'재직상태'),g(d,'재직상태')==='퇴직')+'</td></tr>';
+  }).join(''));
+
+  // 7. MAN HOUR
+  var sumTen2=0; for(var i=0;i<active.length;i++) sumTen2+=gn(active[i],'당사근속');
+  var avgTen2=aC?(sumTen2/aC).toFixed(1):'-';
+  sh('mh-cards', card('평균 근속',avgTen2,'년')+card('평균 연령',avgAge,'세')+card('재직 인원',aC,'명'));
+  var centers=[];
+  for(var i=0;i<active.length;i++){var c=g(active[i],'센터'); if(c&&centers.indexOf(c)<0) centers.push(c);}
+  sh('mh-body', centers.map(function(center){
+    var members=[]; for(var i=0;i<active.length;i++) if(g(active[i],'센터')===center) members.push(active[i]);
+    var cnt=members.length,sum_h=0,max_h=-Infinity,min_h=Infinity;
+    for(var i=0;i<members.length;i++){var h=gn(members[i],'man_hour_actual')||168; sum_h+=h; if(h>max_h)max_h=h; if(h<min_h)min_h=h;}
+    return '<tr><td>'+center+'</td><td>'+cnt+'</td><td>'+sum_h+'</td><td>'+(cnt?(sum_h/cnt).toFixed(1):'-')+'</td><td>'+max_h+'</td><td>'+min_h+'</td></tr>';
+  }).join(''));
+
+  // 8. REPORT
+  var now=new Date();
+  document.getElementById('rpt-date').textContent='기준일: '+now.getFullYear()+'년 '+(now.getMonth()+1)+'월 '+now.getDate()+'일';
+  var rptRows7=[rrow('평균 근속',avgTen2+'년'),rrow('평균 연령',avgAge+'세')];
+  for(var i=0;i<centers.length;i++){
+    var c=centers[i],m=[],s=0;
+    for(var j=0;j<active.length;j++) if(g(active[j],'센터')===c) m.push(active[j]);
+    for(var j=0;j<m.length;j++) s+=gn(m[j],'man_hour_actual')||168;
+    rptRows7.push(rrow(c+' 평균 근무시간', m.length?(s/m.length).toFixed(1)+'h':'-'));
+  }
+  sh('rpt-body',[
+    rblk('1. Workforce Status',[rrow('전체 인원',total+'명'),rrow('재직',aC+'명'),rrow('퇴직',exitC+'명'),rrow('퇴직률',pct(exitC,total))]),
+    rblk('2. Job Level & Job Category',[rrow('직급 분포',jlG.map(function(e){return e[0]+' '+e[1]+'명';}).join(' · ')),rrow('직군 분포',gunG.map(function(e){return e[0]+' '+e[1]+'명';}).join(' · ')),rrow('평균 연령',avgAge+'세'),rrow('경력직 비율',pct(careerC,aC))]),
+    rblk('3. Headcount by Center',[rrow('센터 수',hcG.length+'개'),rrow('센터별 인원',hcG.map(function(e){return e[0]+' '+e[1]+'명';}).join(' · '))]),
+    rblk('4. Academic Degree',[rrow('학력 분포',acG.map(function(e){return e[0]+' '+e[1]+'명 ('+pct(e[1],aC)+')';}).join(' · ')),rrow('석사 이상',masterC+'명 ('+pct(masterC,aC)+')')]),
+    rblk('5. English Skill Level',[rrow('어학 분포',enG.map(function(e){return e[0]+' '+e[1]+'명';}).join(' · ')),rrow('원어민',nativeC+'명')]),
+    rblk('6. Employee Turnover',[rrow('퇴직자',exitC+'명'),rrow('퇴직률',pct(exitC,total)),rrow('퇴직자 평균 근속',avgTen+'년')]),
+    rblk('7. Man Hour Status',rptRows7),
+  ].join(''));
+}
+
+renderAll();
+</script>
+</body>
+</html>
